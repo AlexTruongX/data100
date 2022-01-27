@@ -31,6 +31,26 @@
     - [Binomial probability: two categories](#binomial-probability-two-categories)
     - [Multinomial probability: multiple categories](#multinomial-probability-multiple-categories)
       - [Generalization of multinomial probabilities](#generalization-of-multinomial-probabilities)
+  - [Lecture 3 - Pandas, Part I](#lecture-3---pandas-part-i)
+    - [DataFrames](#dataframes)
+      - [The DataFrame API](#the-dataframe-api)
+      - [> Very Basic Indexing Example](#-very-basic-indexing-example)
+    - [Operators](#operators)
+      - [[]](#)
+    - [Pandas Data Structures](#pandas-data-structures)
+      - [Getting a DataFrame Rather than a Series](#getting-a-dataframe-rather-than-a-series)
+      - [Retrieving Row and Column Labels](#retrieving-row-and-column-labels)
+    - [Conditional Selection](#conditional-selection)
+      - [Boolean Array Input](#boolean-array-input)
+      - [Alternatives to Boolean Array Selection](#alternatives-to-boolean-array-selection)
+    - [Handy Utility Functions](#handy-utility-functions)
+      - [Numpy and Built-in Function Support](#numpy-and-built-in-function-support)
+        - [`size/shape`](#sizeshape)
+        - [`describe`](#describe)
+        - [`sample`](#sample)
+        - [`value_counts`](#value_counts)
+        - [`unique`](#unique)
+      - [`sort_values`](#sort_values)
 
 
 
@@ -255,6 +275,212 @@ Suppose we have samples at random with replacement 7 times from a bag of marbles
 P(4 blue, 3 not blue) is the total chance of all those ways and thus:
 
 ### Multinomial probability: multiple categories
-
+Look at extra slides 
 
 #### Generalization of multinomial probabilities
+Look at extra slides
+
+## Lecture 3 - Pandas, Part I
+Introduction to Pandas syntax, operators, and functions
+
+Code (HTML): https://ds100.org/sp22/resources/assets/lectures/lec03/03-pandas-basics.html
+
+Code: https://data100.datahub.berkeley.edu/user/altruong/lab/tree/sp22/lec/lec03/03-pandas-basics.ipynb 
+
+### DataFrames
+DataFrame: A (statistical) population from which we draw samples. Each sample has certain features
+
+#### The DataFrame API
+The API for the `DataFrame` class is huge. 
+* API: "Application Programming Interface"
+* The API is the set of abstractions (methods, etc) supported by the class
+
+#### > Very Basic Indexing Example
+Most basic task for manipulating a DataFrame: extract rows and columns that we want. 
+
+Most generic: `elections.loc[0:4]` - gives you rows 0 to 4 (inclusive).
+* This is not a function since we are splicing.
+
+`loc` also lets us specify the columns that we want as a second argument. 
+> `elections.loc[0:4, "Year:" "Party"]`
+
+### Operators
+**Loc**
+
+Fundamentally `loc` selects item by **label**
+* The labels are the bolded text to the top and left of our dataframe.
+
+*Arguments to loc can be:*
+* A list.
+  * `elections.loc[[87,25,179], ["Year", "Candidate", "Result]]`
+* A slice (syntax is exclusive of the right hand side of the slice).
+  * `elections.iloc[[1,2,3], 0:2]`
+* A single value.
+  * `elections.iloc[[1,2,3], 1]`
+* If oyu want all rows, but only some columns you can use : for the left argument
+  * `elections.loc[:, ["Year", "Candidate", "Result"]]`
+
+
+**iloc**
+
+Selects by numbers
+Slicing is exclusive (like python, exclude right item)
+* A list
+  * `elections.iloc[[1,2,3], [0,1,2]]`
+  * Give me row 1,2,3 and columns 0,1,2
+* Slicing
+  * `elections.iloc[[1,2,3], 0:3]`
+  * Gives you rows 1,2,3 and columns 0 to 3 (exclusive)
+* A single vlaue
+  * `elections.iloc[[1,2,3], 1]`
+  * Just give me the first column for rows 1,2,3
+
+**Why use loc vs iloc?**
+
+When choosing between `loc` and `iloc`, you'll usually choose `loc`.
+* Safer: if the order of columns gets shufled in a public database, your code sitll works.
+* Legible: easier to understand what `elections.loc[:, ["Year", "Candidate", "Result]]` means than `elections.iloc[:, [0,1,4]]`
+
+*iloc* can still be useful
+* Example: if you have a DataFrame of movie earnings sorted by earnings, can use `iloc` to get the median earnings for a given year (index into the middle).
+
+#### []
+* Selection operators
+* loc selects items by label. First arugment is rows, second argument is columns
+* iloc selects items b y number. First arugment is rows, second argument is columns
+* [] only takes on argument which may be:
+  * A slice of row numbers
+  * A list of column labels
+  * A single column label
+
+[] is context sensitive. 
+
+**Examples**
+* A slice of 
+
+### Pandas Data Structures
+* **Data Frame**: 2D data tabular data
+* **Series**: 1D data e.g columnar data
+* **Index**: A sequence of row labels (own DS, an array)
+
+
+Column labels are generally unique
+
+#### Getting a DataFrame Rather than a Series
+Two approaches:
+* Use `Series.to_frame()`
+* Provide a list containing the single column of interest.
+  * Looks like double b races
+
+
+#### Retrieving Row and Column Labels
+For row labels, use `DataFrame.index`
+
+For column labels, use `DataFrame.columns`
+
+> How do you turn these into an array? Google it.
+
+
+### Conditional Selection
+
+#### Boolean Array Input
+* Most common way to get specific arrays.
+* Needs to be same length as the thing you're indexing.
+* Useful because boolean arrays can be generated by using logical operators on Series.
+
+``` python
+elections[elections["Party"] == "Independent"]
+```
+
+Another example: 
+Boolean series can be combined using various operators, allowing filtering of results by multiple criteria
+```python
+elections[(elections["Result"] == "win") & (elections["%"] < 47)] 
+```
+
+#### Alternatives to Boolean Array Selection
+* `.isin`
+```python
+a_parties = ["Anti-Masonic", "American", "Anti-Monopoly", "American Independent"]
+elections[elections["Party"].isin(a_parties)]
+```
+* `str.startswith`
+```python
+elections[elections["Party"].str.startswith("A")]
+```
+
+* `.query`
+``` python
+# Hug uses this most in his work, very much like SQL
+elections[elections["Party"].str.startswith("A")]
+
+# More rich syntax:
+parties = ["Republican", "Democratic"]
+elections.query('Result == "win" and Party not in @parties')
+```
+
+* `.groupby.filter` (lecture 4)
+``` python
+
+```
+
+### Handy Utility Functions
+
+#### Numpy and Built-in Function Support
+
+```python
+winners = elections.query('Result == "win"')["%"] # Returns series object!
+
+np.mean(winners) # 51.711492943
+max(winners) # 61.34470329
+```
+
+##### `size/shape`
+```python
+elections.size # > 1092
+
+elections.shape # (182, 6) -> (row, column) tuple
+```
+
+##### `describe`
+```python
+# gives you a bunch of statistics e.g count, mean, std, min, max, etc
+elections.describe()
+```
+
+##### `sample`
+* If you want a DataFrame consisting of a random selection of rows, you can use the smaple method (SRS):
+  * By default, **it is without replacement**. Use `replace=True` for *replacement*
+  * Can be chained with other methods and operators (query, iloc, etc)
+
+```python
+elections.sample(5).iloc[:, 0:2]
+
+# Example of what code will look like in this class (super nice):
+elections.query('Year == 2000').sample(4, replace = True).iloc[:, 0:2]
+```
+
+##### `value_counts`
+* The `Series.value_counts` method counts the number of occurences of each unique value in a Series
+  * Return value is also a Series
+
+```python
+elections["Candidate"].value_counts()
+```
+
+##### `unique`
+The `Series.unique` method returns an array of every unique value in a Series
+```python
+elections["Party"].unique() # returns numpy array
+```
+
+#### `sort_values`
+The `DataFrame.sort_values` and `Series.sort_values` methods sort a `DataFrame` (or `Series`).
+* The `DataFrame` version requires an argument specifying the column on which to sort
+
+```python
+elections["Candidate"].sort_values() # ascending -> a,b,c,d,e
+
+elections.sort_values("%", ascending = False) 
+
+```
