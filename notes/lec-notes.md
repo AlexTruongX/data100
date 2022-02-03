@@ -51,6 +51,33 @@
         - [`value_counts`](#value_counts)
         - [`unique`](#unique)
       - [`sort_values`](#sort_values)
+  - [Lecture 4 - Pandas II](#lecture-4---pandas-ii)
+    - [Custom Sort](#custom-sort)
+    - [Adding, Modifying, and Removing Columns](#adding-modifying-and-removing-columns)
+      - [Sorting by Arbitrary Functions](#sorting-by-arbitrary-functions)
+    - [Groupby.agg](#groupbyagg)
+      - [Example: Find female baby name whose popular name has fallen the most](#example-find-female-baby-name-whose-popular-name-has-fallen-the-most)
+      - [Approach 1: Naive for-loop approach](#approach-1-naive-for-loop-approach)
+      - [Approach 2: groupby.agg](#approach-2-groupbyagg)
+    - [use groupby.agg() but maintain row ordering](#use-groupbyagg-but-maintain-row-ordering)
+    - [Other DataFrameGroupBy object Features](#other-dataframegroupby-object-features)
+      - [groupbuy.size()](#groupbuysize)
+      - [Filtering by Group](#filtering-by-group)
+    - [Pivot Tables](#pivot-tables)
+    - [Joining Tables](#joining-tables)
+  - [Lecture 5 - Data Wrangling, Exploratory Data Analysis (EDA)](#lecture-5---data-wrangling-exploratory-data-analysis-eda)
+    - [Data Wrangling](#data-wrangling)
+    - [Key Data Properties](#key-data-properties)
+    - [Structure](#structure)
+      - [File Format](#file-format)
+      - [Variable Types](#variable-types)
+      - [Multiple Files](#multiple-files)
+    - [Granularity, Scope, Temporality](#granularity-scope-temporality)
+      - [Granularity](#granularity)
+      - [Scope](#scope)
+      - [Temporality](#temporality)
+    - [Faithfulness (and missing values)](#faithfulness-and-missing-values)
+      - [Addressing Missing Data/Default Values](#addressing-missing-datadefault-values)
 
 
 
@@ -484,3 +511,388 @@ elections["Candidate"].sort_values() # ascending -> a,b,c,d,e
 elections.sort_values("%", ascending = False) 
 
 ```
+
+## Lecture 4 - Pandas II
+More Advanced Pandas(Grouping, Aggregation, Pivot Tables Merging)
+
+What we're covering:
+* Sorting with a custom key (by googling how to do this).
+* Creating and dropping columns.
+* Groupby: Output of `.groupby(“Name”)` is a `DataFrameGroupBy` object. 
+* Condense back into a DataFrame or Series with:
+  * `groupby.agg`
+  * `groupby.size`
+  * `groupby.filter`
+  * and more...
+
+* Pivot tables: An alternate way to group by exactly two columns. 
+* Joining tables using `pd.merge`.
+
+Code (DataHub): https://data100.datahub.berkeley.edu/user/altruong/notebooks/sp22/lec/lec04/04-pandas-ii.ipynb
+
+Code (HTML):
+
+### Custom Sort
+New to Pandas (Summer 2020):
+```python
+`babynames.query('Sex == "M" and Year == 2020')
+          .sort_values("Name", key = lambda x : x.str.len())
+```
+
+### Adding, Modifying, and Removing Columns
+1. Create a temporary column
+   * Intuition: create a column equal to that length
+
+Adding a column is easy:
+```python
+#create a new series of only the lengths
+babyname_lengths = babynames["Name"].str.len()
+
+#add that series to the dataframe as a column
+babynames["name_lengths"] = babyname_lengths
+babynames.head(5)
+```
+
+If you try to remove the column, you need to specify the axis. By default, it will try to look for a row with that name.
+```python
+#drop the temporary column
+babynames = babynames.drop("name_lengths", axis = 'columns')
+babynames.head(5)
+```
+
+#### Sorting by Arbitrary Functions
+Suppose we ant to story by the umber of occurences of "dr" + number of occurences of "ea".
+* Use the Series `.map` method
+
+```python
+def dr_ea_count(string):
+    return string.count('dr') + string.count('ea')
+
+#create the temporary column
+babynames["dr_ea_count"] = babynames["Name"].map(dr_ea_count)
+
+#sort by the temporary column
+babynames = babynames.sort_values(by = "dr_ea_count", ascending=False)
+babynames.head()
+```
+
+### Groupby.agg
+
+#### Example: Find female baby name whose popular name has fallen the most
+
+#### Approach 1: Naive for-loop approach
+```python
+#build dictionary where each entry is the rtp for a given name
+#e.g. rtps["jennifer"] should be 0.0231
+rtps = {}
+for name in female_babynames["Name"].unique()[0:10]:
+    counts_of_current_name = female_babynames[female_babynames["Name"] == name]["Count"]
+    rtps[name] = ratio_to_peak(counts_of_current_name)
+    
+# convert to series
+rtps = pd.Series(rtps) 
+rtps
+```
+
+#### Approach 2: groupby.agg
+```python
+rtp_table = female_babynames.groupby("Name").agg(ratio_to_peak)
+
+# .agg(func) applies to each column of the sub-dataframes
+# better way to do it -- select the colums BEFORE calling agg
+rtp_table = female_babynames.groupby("Name")[["Count"]].agg(ratio_to_peak)
+```
+* Clusters into sub-dataframes:
+  * Rows with name A goes with all the A's
+  * B goes with all the B's
+  * C row goes with all the C's
+
+
+### use groupby.agg() but maintain row ordering 
+* Problem: You take the max of each column, but you want the row associated with a specific candidate (Woodrow Wilson is not alive in 2020)
+
+1. `sort_values` by %, high to low
+2. `groupby("Party").agg(lambda x: x.iloc[0]).head(9)` - just grab the top row from each subframe
+
+
+### Other DataFrameGroupBy object Features
+Recap:
+`df.groupby("year").agg(sum):
+* Organizes all rows with the same year into a subframe for that year
+* Creates a new dataframe with one row representing each subframe year
+  * All rows in each subframe are combined using the sum function
+
+#### groupbuy.size()  
+
+#### Filtering by Group
+`groupby.filter` takes an argument `f`
+
+
+```python
+# filter gives a copy of the original DataFrame where row r is included
+# if its group obeys the given condition
+#
+# Note: Filtering is done per GROUP, not per ROW.
+elections.groupby("Year").filter(lambda sf: sf["%"].max() < 45)
+```
+* Candidates with 0.7% will stay because it includes all the parties data from elections in which one got greater than 60.
+  * As long as one row passes the condition, it will take all rows from that subframe and put it into the dataframe returned
+
+
+### Pivot Tables
+A more natural approach is to use a pivot table instead of groupby(["Year", "Sex"])
+
+* Example 1 using count & sum:
+```python
+babynames_pivot = babynames.pivot_table(
+    index='Year',     # the rows (turned into index)
+    columns='Sex',    # the column values
+    values=['Count'], # the field(s) to processed in each group
+    aggfunc=np.sum,   # group operation
+)
+babynames_pivot.head(6)
+```
+
+* Example 2: aggregate using multiple values e.g count and name using max
+```python
+babynames_pivot = babynames.pivot_table(
+    index='Year',     # rows (turned into index)
+    columns='Sex',    # column values
+    values=['Count', 'Name'],
+    aggfunc=np.max,   # group operation
+)
+babynames_pivot.head(6)
+
+```
+
+### Joining Tables
+
+1. Create Table 1: male Babynames
+Get only male names from 2020 list
+```python
+male_2020_babynames = babynames.query('Sex == "M" and Year == 2020')
+male_2020_babynames
+```
+
+2. Create Table 2: Presiednts with First Names
+   * Set aside the first names of each candidate
+```python
+elections["First Name"] = elections["Candidate"].str.split().str[0]
+```
+
+3. Join Table 1 & 2 via `pd.merge`
+```python
+merged = pd.merge(left = elections, right = male_2020_babynames, 
+                  left_on = "First Name", right_on = "Name")
+```
+
+## Lecture 5 - Data Wrangling, Exploratory Data Analysis (EDA)
+Infinite loop: Data Wrangling <-> EDA
+
+
+### Data Wrangling
+**Data Wrangling** (or cleaning): the process of transforming raw data to facilitate subsequent analysis
+
+This addresses issues like:
+* structure /formatting
+* missing or corrupted values
+* unit conversion
+* encoding text as numbers
+* ..
+
+**Exploratory Data Analysis (EDA)**
+> Getting to know the data
+* Build/confirm understanding of the data and its provenance
+* Identify and address potential issues in the data
+* Inform the subsequent analysis
+* Discover *potential* hypothesis
+
+This is an open-ended analysis. 
+
+
+### Key Data Properties
+
+1. Structure -- the shape of a data file
+   * File Format
+   * Variable Type
+   * Multiple Files
+2. Granularity - how fine/coarse is each datum
+3. Scope - how in(complete) is the data
+4. Temporarily - how is the data situated in time
+5. Faithfulness - how well does the data capture "reality"
+
+### Structure
+
+#### File Format
+**Rectangular Data**
+Columns: Fields/Attributes/Features
+Rows: Record
+
+Rectangular data are easy to manipulate and analyze, so a big part of data cleaning is aobut transforming data to be more rectangular
+
+**Tables** (aka dataframes in Python & relations in SQL)
+* Named columns w/ different types
+* Manipulated using data transformation langauges (map, filter, group by, join, ...)
+
+**Matrices**
+* Numeric data of the same type (float, int, etc.)
+* Manipulated using linear algebra
+
+**Format?** 
+* TSV: Tab separated values
+* CSV: Comma separated values
+  * Records (rows) are deliminted by a newline: 'n\', "\r\n"
+  * Fields (columns) are delimited by commas: ','
+* JSON: JavaScript Object Notation
+  * Less common table file format
+  * Similar to Python dictionaries
+  * Strict formatting "quoting" addresses some issues in CSV/TSV
+  * Can save metadata (data about the data) along w/ records in the same file 
+* Also:
+  * XML (Extensible Markup Language): nested structure
+  * Log data (usually .txt): design custom parser
+
+
+#### Variable Types
+All data (regardless of format) is composed of **records**. Each record has a set of variables (aka **fields**)
+
+* Tabular: Records == Rows, Variables == Columns
+* Non-Tabular: Create Records and wrangle into tabular data
+
+Variables are defined by their type (2 defs):
+* Storage type in pandas:
+  * integer, floating point, boolean, object,
+  * Feature type: conceptual notion of the information
+    * use expert knowledge
+    * explore data itself
+    * consult data codebook 
+
+
+**Variable Feature Types**
+Quantitative (rations & intervals have meaning)
+- Continuous
+  - Could be measured to arbitrary precision
+  - Examples:
+    - Price
+    - Temperature
+- Discrete
+  - Finite possible values
+  - Examples:
+    - Number of siblings
+    - Yrs of education
+
+Qualitative (categorical)
+- Ordinal
+  - Categories w/ ordered levels; no consistent meaning to difference
+  - Examples:
+    - Preferences (yelp reviews)
+    - Levels of education
+- Nominal
+  - Categories w/ no specific ordering
+  - Examples:
+    - Political Affiliation
+    - Cal ID number
+
+
+Qualitative variables could have numeric levels;
+Quantitative variables could be stored as strings.
+
+#### Multiple Files
+SOmetimes your data comes in multiple files: data will reference other pieces of data
+
+**Primary key:** the coumn or set of columns in a table that determine the values of the remaining columns
+* Primary keys are unique
+* Exampels: SSN, ProductIDs
+
+**Foreign keys:** the column or sets of columns that reference primary keys in other tables.
+* may need to join across tables via `pd.merge`
+
+
+### Granularity, Scope, Temporality
+Ties closely with the question you're trying to ask.
+
+#### Granularity
+What does each **record** represent?
+* Example: a purchase, a person, a group of users
+  
+Do all records capture granularity at the same level?
+* Some data will include summaries (aka rollups) as records
+
+If the data are **coarse**, how were the records aggregated?
+* Sampling, averaging
+
+#### Scope
+Does my data cover my area of interest?
+* Example: I am interested in studying in California but I only have Berkeley crime data. 
+
+Are my data too expansive?
+* Example: I am interested in student grades for DS100 but have student grades for all statistics classes.
+* Solution: **Filtering** => Implications on sample? 
+
+The **sampling frame** is the population frm which the data were sampled. These can differ from the population of interest. 
+* How complete/incomplete is the frame (and its data)?
+  * How is the frame / data situated in place?
+  * How well does the frame / data capture reality?
+  * How is the frame/data situated in time?
+
+
+#### Temporality
+Data changes - when was the data collected / last updated?
+
+Periodicity - is there a periodicity? Diurnal (24-hr) patterns?
+
+* What is the meaning of the time and date fields? A few options:
+  * When the "event" happened?
+  * When the data was collected or was entered into the system?
+  * Date the data was copied into a database? (look for many matching timestamps)
+
+* Time depends on where (time zones & daylight savings)
+  * Learn to use `datetime` python library and Pandas `dt` accessors
+  * Regions have different datestring representations: 07/08/09
+
+* Are there strange null vlaues?
+  * January 1st 1970? January 1st 1900?
+
+
+### Faithfulness (and missing values)
+Does my data have **unrealistic or "incorrect" values?**
+* Dates in the future for events in pasts
+* Locations that don't exist
+* Negative counts
+
+Does my data violate **obvious dependencies**?
+* e.g, my age and birthday don't match
+
+Was the data entered by hand?
+* Spelling errors
+
+Are there obvious signs of data falsification?
+* Repeated names, fake looking email addresses, repeated use of uncommon names or fields
+
+**Signs & Solutions your data may not be faithful:**
+Truncated data
+* Early Microsoft Excel limits: 65536 rows, 255 columns
+* Solution: be aware of consequences in analysis -> how did truncation affect sample?
+
+**Time Zone inconsistencies**
+* Sol 1: convert to common timezone (UTC)
+* Sol 2: convert to timezone of the location ()
+
+**Duplicated Records or Fields**
+* Soln: identify and eliminate (use primary key) => implications on sample?
+
+**Spelling Errors**
+
+#### Addressing Missing Data/Default Values
+**Drop records** with missing  values
+* Probably most common
+* Caution: check for biases induced by dropped values
+  * Missing or corrupt records might be related to something of interest 
+
+
+**Imputation:** inferring missing vlaues
+* Average imputation: replace w/ an average value
+  * Which average? Often use closest related subgroup mean
+
+* Hot deck imputation: replace w/ random value
+  * Choose a random value from the subgroup and use it for the missing value 
