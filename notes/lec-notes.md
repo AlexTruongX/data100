@@ -3,8 +3,7 @@
     University of California, Berkeley
     ds100.org
 
-## Table of Contents
-- [Data 100 - Principles and Techniques of Data Science](#data-100---principles-and-techniques-of-data-science)
+## Table of Contents- [Data 100 - Principles and Techniques of Data Science](#data-100---principles-and-techniques-of-data-science)
   - [Table of Contents](#table-of-contents)
   - [Lecture 1 - Course Overview](#lecture-1---course-overview)
     - [What is Data Science?](#what-is-data-science)
@@ -78,6 +77,35 @@
       - [Temporality](#temporality)
     - [Faithfulness (and missing values)](#faithfulness-and-missing-values)
       - [Addressing Missing Data/Default Values](#addressing-missing-datadefault-values)
+  - [Lecture 6 - Regex](#lecture-6---regex)
+    - [Why work with text? Two main goals](#why-work-with-text-two-main-goals)
+    - [Python String Methods](#python-string-methods)
+    - [Regex Basics](#regex-basics)
+    - [Convenient Regex](#convenient-regex)
+    - [Finding Regex Groups](#finding-regex-groups)
+      - [Raw Strings in Python](#raw-strings-in-python)
+      - [Extraction](#extraction)
+  - [Lecture 7 - Visualization I](#lecture-7---visualization-i)
+    - [What is a distribution?](#what-is-a-distribution)
+    - [Goals of Data Visualization](#goals-of-data-visualization)
+    - [Bar Plots](#bar-plots)
+    - [Histograms](#histograms)
+      - [Rugplots](#rugplots)
+      - [Evaluating Histograms](#evaluating-histograms)
+      - [Skewness and Tails](#skewness-and-tails)
+      - [Outliers](#outliers)
+      - [Modes](#modes)
+      - [Histograms + Density](#histograms--density)
+      - [Data 8 Review: Computing Density from Counts and Bin Size](#data-8-review-computing-density-from-counts-and-bin-size)
+    - [Quartiles](#quartiles)
+    - [Box Plots and Violin Plots](#box-plots-and-violin-plots)
+    - [Comparing Quantiative Distributions](#comparing-quantiative-distributions)
+      - [Overlaid histograms and density curves](#overlaid-histograms-and-density-curves)
+      - [Box plot & violin](#box-plot--violin)
+    - [Relationships Between Quantitative Variables](#relationships-between-quantitative-variables)
+      - [Scatter Plots](#scatter-plots)
+    - [Hex plots](#hex-plots)
+    - [Countour plots](#countour-plots)
 
 
 
@@ -674,7 +702,7 @@ male_2020_babynames = babynames.query('Sex == "M" and Year == 2020')
 male_2020_babynames
 ```
 
-2. Create Table 2: Presiednts with First Names
+2. Create Table 2: Presidents with First Names
    * Set aside the first names of each candidate
 ```python
 elections["First Name"] = elections["Candidate"].str.split().str[0]
@@ -896,3 +924,314 @@ Truncated data
 
 * Hot deck imputation: replace w/ random value
   * Choose a random value from the subgroup and use it for the missing value 
+
+## Lecture 6 - Regex
+
+### Why work with text? Two main goals
+1. **Canonicalization**: convert data that has more than one possible presentation into a standard form.
+   * Ex: Join tables w/ mismatched labels
+
+2. **Extract** information into a new feature
+
+
+### Python String Methods
+
+1. `.replace(' ', '')`
+
+```python
+def canonicalize_county(county_name):
+    return (
+        county_name
+        .lower()               # lower case
+        .replace(' ', '')      # remove spaces
+        .replace('&', 'and')   # replace &
+        .replace('.', '')      # remove dot
+        .replace('county', '') # remove county
+        .replace('parish', '') # remove parish
+    )
+```
+
+2. `.split("["])`
+```python
+pertinent = first.split("[")[1].split(']')[0]
+day, month, rest = pertinent.split('/')
+year, hour, minute, rest = rest.split(':')
+seconds, time_zone = rest.split(' ')
+day, month, year, hour, minute, seconds, time_zone
+
+>>> ('26', 'Jan', '2014', '10', '47', '58', '-0800')
+```
+
+* Parse/replace/split substrings
+
+### Regex Basics
+A **formal language** is a set of strings, typically desribed implicitly.
+* Example: The set of all strings of length < 10 that contain data
+
+A **regular expression** ("regex") is a sequence of characters that specifies a search pattern. 
+
+Resources:
+  1. https://docs.python.org/3/howto/regex.html
+  2. https://ds100.org/sp22/resources/assets/hw/regex_reference.pdf  
+
+
+![regex syntax](../images/IMG_8226.png)
+![regex expanded](../images/regex_expanded.png)
+![regex expanded example](../images/regex_expand_ex.png)
+
+### Convenient Regex
+![convenient](../images/convenient_regex.png)
+![extra](../images/extra_regex.png)
+
+### Finding Regex Groups
+`re.sub(pattern, repl, text)`
+* Returns text with al linstances `pattern` replaced by `repl`
+```python
+text = "<div><td valign="top">Moo</td></div>"
+pattern = r"<[^>]+>"
+re.sub(pattern, '', text) # returns Moo
+```
+
+`ser.str.replace(pattern, repl, regex=True)`
+* Returns Series with all instances of `pattern` in Series `ser` replaced by `repl`
+```python
+df["Html"].str.replace(pattern, '')
+```
+
+#### Raw Strings in Python
+When specifying a pattern, we strongly suggest using raw strings. 
+* A raw string is created using `r""` or `r''` instead of just `""` or `''`.
+
+#### Extraction
+`re.findall(pattern, text)`
+* Returns a list of all matches to `pattern`
+
+```python
+text = "My social security number is 123-45-6789 bro, or actually maybe it’s 321-45-6789.";
+pattern = r"[0-9]{3}-[0-9]{2}-[0-9]{4}"
+re.findall(pattern, text)  
+```
+
+`ser.str.findall(pattern)`
+* Returns a Series of lists
+```python
+df["SSN"].str.findall(pattern)
+```
+## Lecture 7 - Visualization I
+Visualizing and Reporting Data (Data Acquisition, Exploratory Data Analysis)
+
+### What is a distribution?
+A **distribution** describes the frequency at which values of a variable occur:
+* All values must be accounted for **once, and only once**
+  * Ex: can't be both a freshman and a junior
+* The total frequencies must **add up to 100%**, or to the number of values that we're observing
+  * Proportion of individuals in each category
+
+### Goals of Data Visualization
+Goal 1: To **help your own understanding** of your data/results.
+* Key part of exploratory data analysis.
+* Useful throughout modeling as well.
+* Lightweight, iterative and flexible.
+
+Goal 2: To **communicate results/conclusions to others**.
+* Highly editorial and selective. 
+* Be thoughtful and careful!
+* Fine tuned to achieve a communications goal.
+* Often time-consuming: bridges into design, even art.
+
+### Bar Plots
+**Bar Plots** are the most common way of displaying the *distributive* of a *qualitative (categorical)* variable
+* For example, the proportions of adults in he upper, middle, and lower classes
+* Lengths encode values.
+  * Widths encode nothing.
+  * Color could indicate a sub-category (but not necessarily)
+
+![bar h plot](../images/barh.png)
+
+**In Pandas:**
+
+`births['Maternal Smoker'].value_counts()`
+![bar-h series](../images/pandas_barh.png)
+
+
+**Pandas Native:**
+
+Pandas dataframes and series have plotting methods, simialr to the Table class.
+
+`births['maternal Smoker'].value_counts().plot(kind = 'bar')`
+
+
+**Matplotlib Manual:**
+![bar for matplotlib manual](../images/bar_matplotlib.png)
+* Too low level, no true or false values.
+```python
+ms = births['Maternal Smoker'].value_counts();
+plt.bar(ms.index, ms);
+```
+
+**Seaborn (Preferred Approach in Data 100):**
+* Uses matplotlib as its rendering engine
+* Simpler to use- super aesthetics.
+
+**Seaborn countplot function**
+![bar for seaborn](../images/bar_seaborn.png)
+
+```python
+import seaborn as sns
+sns.countplot(data = births, x = 'Maternal Smoker');
+```
+
+**Plotly.express (px):**
+![bar for plotly](../images/bar_plotly.png)
+```python
+import plotly.express as px
+px.histogram(births, x = 'Maternal Smoker', color = 'Maternal Smoker')
+```
+
+### Histograms
+![histogram seaborn](../images/lec7_hist_seaborn.png)
+`sns.histplot(data = births, x = 'Maternal Pregnancy Weight');`
+* Histplot bins versus countplots (takes every single integer)
+
+#### Rugplots
+* Add even more information to the bar plot.
+* An overlaid "rug plot" lets us see the distribution of data points within each bin
+
+![rugplot](../images/lec7_rugplot.png)
+
+```python
+sns.histplot(data = births, x = 'Maternal Pregnancy Weight');
+sns.rugplot(data = births, x = 'Maternal Pregnancy Weight', color = "red");
+```
+
+#### Evaluating Histograms
+Histograms allow us to assess a distribution by their shape.
+
+Some of the terminology we use to describe destributions:
+
+**Skewness and Tails**
+* Skewed left vs skewed right
+* Left tail vs right tail
+
+
+#### Skewness and Tails
+If a distribution has a long right tail, we call it skewed right.
+* Mean is typically to the right of the median.
+  * Think of the mean as the “balancing point” of the density.
+* If the tail is on the left, we say the data is **skewed left**.
+* Our distribution can be also **symmetric**, when both tails are of equal size.
+
+#### Outliers
+This visualization lets us see outlier(s) in this sample on the far right.
+* What constitutes an outlier is a choice we have to make.
+  * Just the largest point?
+  * The rightmost 4 bins?
+* Will define outliers more carefully later when we talk about box plots.
+
+#### Modes
+A **mode** of a distribution is a local or global maximum.
+* A distribution with a single clear maximum is called unimodal.
+* Distributions with two modes are called bimodal.
+  * More than two: multimodal.
+* Need to distinguish between **modes** and **random noise**.
+  * Bin size can change this if it's unimodal or bimodal. 
+
+![](../images/lec7_mode.png)
+
+
+```python
+sns.histplot(data = births, x = 'Maternal Pregnancy Weight', bins = 20);
+sns.rugplot(data = births, x = 'Maternal Pregnancy Weight', color = "red");
+```
+
+**Can't decide if something is bimodal or unimodal?**
+
+**Use a density curve!**
+* Instead of a discrete histogram, we can visualize what a continuous distribution corresponding to that same histogram could look like...
+The smooth curve drawn on top of the histogram here is called a density curve.
+
+In lecture 8, we will study how exactly to compute these density curves (using a technique is called Kernel Density Estimation). 
+
+
+#### Histograms + Density
+Rather than labeling by counts, we can instead plot the density, as shown below:
+
+![](../images/lec7_histogram-density.png)
+
+#### Data 8 Review: Computing Density from Counts and Bin Size
+Approximately ~120 babies were born with a weight between 110 and 115.
+
+There are 1174 observations total.
+Total area of this bin should be:
+* 120/1174  = ~10%
+
+Density of this bin is therefore:
+* 10% / (115 - 110) = 0.02
+
+
+**Math Calculation:**
+There are 1174 observations total.
+* Width of bin [110, 115): 5
+* Height of bar [110, 115): 0.02
+* Proportion in bin = 5 * 0.02 = 0.1
+* Number in bin = 0.1 * 1174 = 117.4
+
+![](../images/lec7_compute_density_hist.png)
+
+This is roughly the number we got before (120)!
+
+### Quartiles
+For a quantative variable:
+* First or lower quartile: 25th percentile
+* Second quartiler: 50th percentile (median)
+* Third or upper quartile: 75th percentile
+
+The interval [first quartile, third quartile] contains the "middle 50%" of the data.
+
+**Interquartile range (IQR)** measures spread.
+* IQR = third quartile - first quartile
+
+### Box Plots and Violin Plots
+Boxplots summarize vseveral characteristics of a numerical distribution. They visualize:
+* **Lower quartile**
+* Median
+* Upper quartile
+* **"Whiskers"**, palced at a lower quartile minus 1.5\*IQR and upper quartile plus 1.5\*IQR
+* **Outliers** are defined as being further than 1.5*IQR (below and above)
+* Lose a lot of information, though!
+
+![](../images/lec7_box_plot.png)
+
+`sns.boxplot(y = "Birth Weight", data = births)`
+
+
+**Violin Plots** are similar to boxplots, but also show smoothed density curves.
+* The "width" of our 'box" noe has meaning
+* The three quartiles and "whiskers" are still present - look closely.
+
+### Comparing Quantiative Distributions
+
+#### Overlaid histograms and density curves
+* Only good for 2 categories
+
+![](../images/lec7_multiple_hist_curves.png)
+
+#### Box plot & violin
+Box plots and violin plots are concise, and thus are well suited to be stacked side by side to compare multiple distributions at once.
+* At a glance, we can tell that the median birth weight is higher for babies whose mothers did not smoke while pregnant (“False”).
+* The violin plot shows us the bimodal nature of the “True” category.
+
+### Relationships Between Quantitative Variables
+
+#### Scatter Plots
+Scatter plots are used to reveal relationships between pairs of numerical variables.
+* The bottom left plot is labeled “linear, spreading” because the relationship appears linear, but with increasing spread as x gets larger.
+* Visual assessment may help us decide what kind of model to build.
+  * Example model: Simple Linear Regression from Data 8. Good for the left two, not so much for the right two.  
+  * More on modeling after midterm 1.
+
+**Jittering**
+
+### Hex plots
+
+### Countour plots
